@@ -1,6 +1,6 @@
 import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
 
-@Entity('usuario')
+@Entity('usuarios')
 export class User {
     @PrimaryGeneratedColumn()
     id: number;
@@ -8,12 +8,15 @@ export class User {
     @Column()
     nombre_usuario: string;
 
-    @Column()
-    contraseña_hash: string;
+    @Column({ type: 'varchar', nullable: true })
+    contraseña_hash: string | null;
 
-    @Column()
+    @Column({ type: 'varchar' })
     correo_electronico: string;
 
-    @Column({ name: 'creado_el', type: 'timestamp' })
+    @Column({ name: 'google_id', type: 'varchar', nullable: true, unique: true })
+    google_id: string | null;
+
+    @Column({ name: 'creado_el', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     creado_el: Date;
 }
