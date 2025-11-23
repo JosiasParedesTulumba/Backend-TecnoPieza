@@ -19,4 +19,7 @@ export class User {
 
     @Column({ name: 'creado_el', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     creado_el: Date;
+
+    @Column({ name: 'avatar_url', type: 'varchar', nullable: true })
+    avatar_url: string | null;
 }

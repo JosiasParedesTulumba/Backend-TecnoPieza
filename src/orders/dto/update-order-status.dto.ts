@@ -1,0 +1,6 @@
+import { OrderStatus } from '../entities/order.entity';
+
+export class UpdateOrderStatusDto {
+    estado: OrderStatus;
+}
+

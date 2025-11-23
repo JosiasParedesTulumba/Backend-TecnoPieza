@@ -88,7 +88,7 @@ export class AuthService {
         }
     }
 
-    private generateJwtToken(user: any) {
+    generateJwtToken(user: any) {
         const payload = {
             email: user.correo_electronico,
             sub: user.id,

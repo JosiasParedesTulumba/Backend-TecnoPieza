@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { LoginDto } from './dto/login.dto';
@@ -24,8 +24,11 @@ export class AuthController {
     @Post('login')
     @HttpCode(HttpStatus.OK)
     async login(@Body() loginDto: LoginDto) {
-        // Aquí va la lógica para validar el usuario y devolver el token
-        return this.authService.validateUser(loginDto.correo, loginDto.password);
+        const user = await this.authService.validateUser(loginDto.correo, loginDto.password);
+        if (!user) {
+            throw new UnauthorizedException('Credenciales inválidas');
+        }
+        return this.authService.generateJwtToken(user);
     }
 
     @Post('register')
