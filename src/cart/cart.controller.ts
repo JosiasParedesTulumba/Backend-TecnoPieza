@@ -9,17 +9,19 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @Controller('cart')
 @UseGuards(JwtAuthGuard)
 export class CartController {
-  constructor(private readonly cartService: CartService) {}
+  constructor(private readonly cartService: CartService) { }
 
   @Get()
   async getCart(@Request() req): Promise<Cart> {
     const userId = req.user.userId; // El ID del usuario viene del JWT
+    console.log('🛒 GET /cart - userId:', userId);
     return this.cartService.getCart(userId);
   }
 
   @Post('items')
-  async addItem(@Request() req, @Body() addItemDto: AddItemToCartDto): Promise<CartItem> {
+  async addItem(@Request() req, @Body() addItemDto: AddItemToCartDto): Promise<Cart> {
     const userId = req.user.userId;
+    console.log('➕ POST /cart/items - userId:', userId, 'dto:', addItemDto);
     return this.cartService.addItem(userId, addItemDto);
   }
 
@@ -28,7 +30,7 @@ export class CartController {
     @Request() req,
     @Param('itemId', ParseIntPipe) itemId: number,
     @Body() updateDto: UpdateCartItemDto
-  ): Promise<CartItem> {
+  ): Promise<Cart> {
     const userId = req.user.userId;
     return this.cartService.updateItem(userId, itemId, updateDto);
   }

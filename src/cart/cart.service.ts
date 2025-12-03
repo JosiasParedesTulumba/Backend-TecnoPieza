@@ -1,11 +1,11 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Cart } from './entities/cart.entity';
 import { CartItem } from './entities/cart-item.entity';
-import { ProductVariation } from '../product-variations/entities/product-variation.entity';
 import { AddItemToCartDto } from './dto/add-item-to-cart.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
+import { ProductsService } from '../products/products.service';
 
 @Injectable()
 export class CartService {
@@ -14,121 +14,118 @@ export class CartService {
     private readonly cartRepository: Repository<Cart>,
     @InjectRepository(CartItem)
     private readonly cartItemRepository: Repository<CartItem>,
-    @InjectRepository(ProductVariation)
-    private readonly variationRepository: Repository<ProductVariation>,
-  ) {}
+    @Inject(forwardRef(() => ProductsService))
+    private readonly productsService: ProductsService,
+  ) { }
+
+  // Archivo: src/cart/cart.service.ts
 
   async getOrCreateCart(userId: number): Promise<Cart> {
     let cart = await this.cartRepository.findOne({
-      where: { usuario_id: userId },
-      relations: ['items', 'items.variacion', 'items.variacion.producto']
+      where: { usuario: { id: userId } },
+      relations: ['items', 'items.producto']
     });
 
     if (!cart) {
-      cart = this.cartRepository.create({ usuario_id: userId });
+      cart = this.cartRepository.create({ usuario: { id: userId } });
       cart = await this.cartRepository.save(cart);
+
+      // --- LA CORRECCIÓN ESTÁ AQUÍ ---
+      // Después de crear un carrito, nos aseguramos de que
+      // su lista de items sea un array vacío.
+      cart.items = [];
     }
 
     return cart;
   }
 
   async getCart(userId: number): Promise<Cart> {
-    const cart = await this.cartRepository.findOne({
-      where: { usuario_id: userId },
-      relations: ['items', 'items.variacion', 'items.variacion.producto']
-    });
-
-    if (!cart) {
-      throw new NotFoundException('Carrito no encontrado');
-    }
-
-    return cart;
+    // En lugar de lanzar error, crear carrito si no existe
+    return this.getOrCreateCart(userId);
   }
 
-  async addItem(userId: number, addItemDto: AddItemToCartDto): Promise<CartItem> {
-    // Verificar que la variación existe y tiene inventario
-    const variation = await this.variationRepository.findOne({
-      where: { id: addItemDto.variacion_id }
-    });
+  async addItem(userId: number, addItemDto: AddItemToCartDto): Promise<Cart> {
+    const { producto_id, cantidad } = addItemDto;
 
-    if (!variation) {
-      throw new NotFoundException('Variación de producto no encontrada');
+    // Verificar que el producto existe
+    const producto = await this.productsService.findOne(producto_id);
+
+    if (!producto) {
+      throw new NotFoundException('Producto no encontrado');
     }
 
-    if (variation.inventario < addItemDto.cantidad) {
-      throw new BadRequestException('No hay suficiente inventario');
-    }
-
-    // Obtener o crear carrito
     const cart = await this.getOrCreateCart(userId);
 
-    // Verificar si el item ya existe en el carrito
-    let cartItem = await this.cartItemRepository.findOne({
-      where: {
-        carrito_id: cart.id,
-        variacion_id: addItemDto.variacion_id
-      }
-    });
+    // Verificar si el producto ya está en el carrito
+    const existingItem = cart.items.find(item => item.producto.id === producto_id);
 
-    if (cartItem) {
-      // Actualizar cantidad
-      const newQuantity = cartItem.cantidad + addItemDto.cantidad;
-      if (variation.inventario < newQuantity) {
-        throw new BadRequestException('No hay suficiente inventario');
-      }
-      cartItem.cantidad = newQuantity;
-      return await this.cartItemRepository.save(cartItem);
+    if (existingItem) {
+      // Actualizar cantidad si ya existe
+      existingItem.cantidad += cantidad;
+      await this.cartItemRepository.save(existingItem);
     } else {
-      // Crear nuevo item
-      cartItem = this.cartItemRepository.create({
-        carrito_id: cart.id,
-        variacion_id: addItemDto.variacion_id,
-        cantidad: addItemDto.cantidad
+      // Crear nuevo ítem
+      const newItem = this.cartItemRepository.create({
+        carrito: cart,
+        producto: producto,
+        cantidad,
       });
-      return await this.cartItemRepository.save(cartItem);
+      await this.cartItemRepository.save(newItem);
+      cart.items.push(newItem);
     }
+
+    return this.getCart(userId);
   }
 
-  async updateItem(userId: number, itemId: number, updateDto: UpdateCartItemDto): Promise<CartItem> {
-    const cart = await this.getCart(userId);
-    
-    const cartItem = await this.cartItemRepository.findOne({
-      where: { id: itemId, carrito_id: cart.id },
-      relations: ['variacion']
+  async updateItem(userId: number, itemId: number, updateDto: UpdateCartItemDto): Promise<Cart> {
+    const item = await this.cartItemRepository.findOne({
+      where: { id: itemId },
+      relations: ['carrito', 'carrito.usuario'] // Cargar también la relación usuario
     });
 
-    if (!cartItem) {
-      throw new NotFoundException('Item del carrito no encontrado');
+    if (!item) {
+      throw new NotFoundException('Ítem no encontrado en el carrito');
     }
 
-    if (updateDto.cantidad <= 0) {
-      throw new BadRequestException('La cantidad debe ser mayor a 0');
+    // Verificar que el carrito pertenece al usuario
+    if (item.carrito.usuario.id !== userId) {
+      throw new BadRequestException('No tienes permiso para modificar este carrito');
     }
 
-    if (cartItem.variacion.inventario < updateDto.cantidad) {
-      throw new BadRequestException('No hay suficiente inventario');
+    if (updateDto.cantidad !== undefined) {
+      if (updateDto.cantidad <= 0) {
+        // Si la cantidad es 0 o menor, eliminar el ítem
+        return this.removeItem(userId, itemId);
+      }
+
+      item.cantidad = updateDto.cantidad;
+      await this.cartItemRepository.save(item);
     }
 
-    cartItem.cantidad = updateDto.cantidad;
-    return await this.cartItemRepository.save(cartItem);
+    return this.getCart(userId);
   }
 
-  async removeItem(userId: number, itemId: number): Promise<void> {
-    const cart = await this.getCart(userId);
-    
-    const result = await this.cartItemRepository.delete({
-      id: itemId,
-      carrito_id: cart.id
+  async removeItem(userId: number, itemId: number): Promise<Cart> {
+    const item = await this.cartItemRepository.findOne({
+      where: { id: itemId },
+      relations: ['carrito', 'carrito.usuario'] // Cargar también la relación usuario
     });
 
-    if (result.affected === 0) {
-      throw new NotFoundException('Item del carrito no encontrado');
+    if (!item) {
+      throw new NotFoundException('Ítem no encontrado en el carrito');
     }
+
+    // Verificar que el carrito pertenece al usuario
+    if (item.carrito.usuario.id !== userId) {
+      throw new BadRequestException('No tienes permiso para modificar este carrito');
+    }
+
+    await this.cartItemRepository.remove(item);
+    return this.getCart(userId);
   }
 
   async clearCart(userId: number): Promise<void> {
     const cart = await this.getCart(userId);
-    await this.cartItemRepository.delete({ carrito_id: cart.id });
+    await this.cartItemRepository.remove(cart.items);
   }
 }
-

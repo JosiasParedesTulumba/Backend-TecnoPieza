@@ -4,7 +4,6 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ProductsModule } from './products/products.module';
-import { ProductVariationsModule } from './product-variations/product-variations.module';
 import { CartModule } from './cart/cart.module';
 import { OrdersModule } from './orders/orders.module';
 
@@ -26,9 +25,8 @@ import { OrdersModule } from './orders/orders.module';
       envFilePath: '.env',
     }),
     AuthModule, 
-    UsersModule,
+    UsersModule,  
     ProductsModule,
-    ProductVariationsModule,
     CartModule,
     OrdersModule
   ],

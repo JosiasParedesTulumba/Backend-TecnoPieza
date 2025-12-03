@@ -12,11 +12,11 @@ import { JwtStrategy } from './strategy/jwt.strategy';
     PassportModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'tu-clave-secreta-super-segura', // En producción usar variables de entorno
-      signOptions: { expiresIn: '24h' }, // Token válido por 24 horas
+      signOptions: { expiresIn: '7d' }, // Token válido por 24 horas
     }),
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
   exports: [AuthService],
 })
-export class AuthModule {}
+export class AuthModule { }

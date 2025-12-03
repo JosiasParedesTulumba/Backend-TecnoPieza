@@ -1,5 +1,6 @@
 import { Column, Entity, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Order } from './order.entity';
+import { Product } from '../../products/entities/product.entity';
 
 @Entity('items_pedido')
 export class OrderItem {
@@ -13,14 +14,15 @@ export class OrderItem {
     @JoinColumn({ name: 'pedido_id' })
     pedido: Order;
 
-    @Column({ name: 'sku_comprado', type: 'varchar', length: 100, nullable: true })
-    sku_comprado: string | null;
+    @Column({ name: 'producto_id' })
+    producto_id: number;
+
+    @ManyToOne(() => Product, { onDelete: 'CASCADE' })
+    @JoinColumn({ name: 'producto_id' })
+    producto: Product;
 
     @Column({ name: 'nombre_producto', type: 'varchar', length: 255 })
     nombre_producto: string;
-
-    @Column({ name: 'detalles_variacion', type: 'varchar', length: 255, nullable: true })
-    detalles_variacion: string | null;
 
     @Column({ type: 'int' })
     cantidad: number;

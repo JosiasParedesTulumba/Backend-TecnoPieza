@@ -1,5 +1,4 @@
-import { Column, Entity, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
-import { ProductVariation } from '../../product-variations/entities/product-variation.entity';
+import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity('productos')
 export class Product {
@@ -26,7 +25,4 @@ export class Product {
 
     @Column({ name: 'creado_el', type: 'timestamp' })
     creadoEl: Date;
-
-    @OneToMany(() => ProductVariation, variation => variation.producto)
-    variaciones: ProductVariation[];
 }

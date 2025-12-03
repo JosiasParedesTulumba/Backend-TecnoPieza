@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order, OrderStatus } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
-import { ProductVariation } from '../product-variations/entities/product-variation.entity';
+import { Product } from '../products/entities/product.entity';
 import { CartService } from '../cart/cart.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
@@ -15,8 +15,8 @@ export class OrdersService {
     private readonly orderRepository: Repository<Order>,
     @InjectRepository(OrderItem)
     private readonly orderItemRepository: Repository<OrderItem>,
-    @InjectRepository(ProductVariation)
-    private readonly variationRepository: Repository<ProductVariation>,
+    @InjectRepository(Product)
+    private readonly productRepository: Repository<Product>,
     private readonly cartService: CartService,
   ) {}
 
@@ -33,29 +33,24 @@ export class OrdersService {
     const orderItems: OrderItem[] = [];
 
     for (const cartItem of cart.items) {
-      const variation = cartItem.variacion;
-      const producto = variation.producto;
+      const producto = await this.productRepository.findOne({
+        where: { id: cartItem.producto.id }
+      });
 
-      // Verificar inventario
-      if (variation.inventario < cartItem.cantidad) {
-        throw new BadRequestException(
-          `No hay suficiente inventario para ${producto.nombre}`
-        );
+      if (!producto) {
+        throw new NotFoundException(`Producto no encontrado`);
       }
 
-      const subtotal = Number(variation.precio) * cartItem.cantidad;
-      montoTotal += subtotal;
-
-      // Crear item del pedido
+      // Crear ítem del pedido
       const orderItem = this.orderItemRepository.create({
-        sku_comprado: variation.sku,
+        producto_id: producto.id,
         nombre_producto: producto.nombre,
-        detalles_variacion: this.buildVariationDetails(variation),
         cantidad: cartItem.cantidad,
-        precio_unitario: Number(variation.precio)
+        precio_unitario: producto.precio,
       });
 
       orderItems.push(orderItem);
+      montoTotal += producto.precio * cartItem.cantidad;
     }
 
     // Crear el pedido
@@ -63,30 +58,21 @@ export class OrdersService {
       usuario_id: userId,
       monto_total: montoTotal,
       estado: OrderStatus.PROCESANDO,
-      items: orderItems
+      items: orderItems,
     });
 
     const savedOrder = await this.orderRepository.save(order);
 
-    // Actualizar inventario y limpiar carrito
-    for (const cartItem of cart.items) {
-      const variation = cartItem.variacion;
-      variation.inventario -= cartItem.cantidad;
-      await this.variationRepository.save(variation);
-    }
-
+    // Vaciar el carrito
     await this.cartService.clearCart(userId);
 
     // Retornar el pedido con sus items
     return this.findOne(savedOrder.id);
   }
 
-  private buildVariationDetails(variation: any): string | null {
-    const details: string[] = [];
-    if (variation.color) details.push(`Color: ${variation.color}`);
-    if (variation.capacidad) details.push(`Capacidad: ${variation.capacidad}`);
-    if (variation.potencia) details.push(`Potencia: ${variation.potencia}`);
-    return details.length > 0 ? details.join(', ') : null;
+  private buildVariationDetails(): string | null {
+    // No se utiliza en este ejemplo ya que eliminamos las variaciones
+    return null;
   }
 
   async findAll(userId: number): Promise<Order[]> {

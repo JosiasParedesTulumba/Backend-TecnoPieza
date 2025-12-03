@@ -7,8 +7,8 @@ export class Cart {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @Column({ name: 'usuario_id' })
-    usuario_id: number;
+    // @Column({ name: 'usuario_id' })
+    // usuario_id: number;
 
     @ManyToOne(() => User, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'usuario_id' })
