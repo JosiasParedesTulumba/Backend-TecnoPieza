@@ -9,6 +9,11 @@ import { OrdersModule } from './orders/orders.module';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      // ⭐ Detecta automáticamente el archivo según NODE_ENV
+      envFilePath: process.env.NODE_ENV === 'production' ? '.env.production' : '.env',
+    }),
     TypeOrmModule.forRoot({
       type: 'mysql',
       host: process.env.DB_HOST || 'localhost',
@@ -18,14 +23,20 @@ import { OrdersModule } from './orders/orders.module';
       database: process.env.DB_DATABASE || 'app_movil',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: false,
-      logging: true,
+      logging: process.env.NODE_ENV === 'development',
+
+      // Configuración SSL (false para local, true para Aiven)
+      ssl: process.env.DB_SSL === 'true' ? {
+        rejectUnauthorized: true,
+      } : false,
+
+      extra: {
+        connectionLimit: 10,
+      },
     }),
-    ConfigModule.forRoot({
-      isGlobal: true, // Hace que las variables de entorno estén disponibles en toda la app
-      envFilePath: '.env',
-    }),
-    AuthModule, 
-    UsersModule,  
+
+    AuthModule,
+    UsersModule,
     ProductsModule,
     CartModule,
     OrdersModule
@@ -33,4 +44,4 @@ import { OrdersModule } from './orders/orders.module';
   controllers: [],
   providers: [],
 })
-export class AppModule {}
+export class AppModule { }
