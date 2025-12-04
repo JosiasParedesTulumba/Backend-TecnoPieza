@@ -1,12 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Order, OrderStatus } from './entities/order.entity';
+import { Order, OrderStatus, PaymentStatus } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { Product } from '../products/entities/product.entity';
 import { CartService } from '../cart/cart.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { UpdatePaymentStatusDto } from './dto/update-payment-status.dto';
+
 
 @Injectable()
 export class OrdersService {
@@ -18,7 +20,7 @@ export class OrdersService {
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
     private readonly cartService: CartService,
-  ) {}
+  ) { }
 
   async create(userId: number, createOrderDto: CreateOrderDto): Promise<Order> {
     // Obtener el carrito del usuario
@@ -53,11 +55,14 @@ export class OrdersService {
       montoTotal += producto.precio * cartItem.cantidad;
     }
 
-    // Crear el pedido
+    // Crear el pedido con información de pago
     const order = this.orderRepository.create({
       usuario_id: userId,
       monto_total: montoTotal,
       estado: OrderStatus.PROCESANDO,
+      metodo_pago: createOrderDto.metodo_pago,
+      estado_pago: createOrderDto.metodo_pago ? PaymentStatus.PENDIENTE : PaymentStatus.PENDIENTE,
+      referencia_pago: createOrderDto.referencia_pago,
       items: orderItems,
     });
 
@@ -69,6 +74,7 @@ export class OrdersService {
     // Retornar el pedido con sus items
     return this.findOne(savedOrder.id);
   }
+
 
   private buildVariationDetails(): string | null {
     // No se utiliza en este ejemplo ya que eliminamos las variaciones
@@ -126,5 +132,49 @@ export class OrdersService {
     order.estado = OrderStatus.CANCELADO;
     return await this.orderRepository.save(order);
   }
+
+  async updatePaymentStatus(id: number, updateDto: UpdatePaymentStatusDto, userId: number): Promise<Order> {
+    const order = await this.findOne(id);
+
+    // Verificar que el pedido pertenece al usuario
+    if (order.usuario_id !== userId) {
+      throw new NotFoundException('Pedido no encontrado');
+    }
+
+    order.estado_pago = updateDto.estado_pago;
+
+    if (updateDto.referencia_pago) {
+      order.referencia_pago = updateDto.referencia_pago;
+    }
+
+    // Si el pago fue exitoso, registrar la fecha
+    if (updateDto.estado_pago === PaymentStatus.PAGADO) {
+      order.pagado_el = new Date();
+    }
+
+    return await this.orderRepository.save(order);
+  }
+
+  async confirmPayment(id: number, userId: number, referenciaPago?: string): Promise<Order> {
+    const order = await this.findOne(id);
+
+    if (order.usuario_id !== userId) {
+      throw new NotFoundException('Pedido no encontrado');
+    }
+
+    if (order.estado_pago === PaymentStatus.PAGADO) {
+      throw new BadRequestException('El pago ya fue confirmado');
+    }
+
+    order.estado_pago = PaymentStatus.PAGADO;
+    order.pagado_el = new Date();
+
+    if (referenciaPago) {
+      order.referencia_pago = referenciaPago;
+    }
+
+    return await this.orderRepository.save(order);
+  }
 }
+
 

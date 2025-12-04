@@ -3,7 +3,9 @@ import { OrdersService } from './orders.service';
 import { Order } from './entities/order.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { UpdatePaymentStatusDto } from './dto/update-payment-status.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+
 
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
@@ -52,5 +54,28 @@ export class OrdersController {
     const userId = req.user.userId;
     return this.ordersService.cancelOrder(id, userId);
   }
+
+  @Put(':id/payment-status')
+  async updatePaymentStatus(
+    @Request() req,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateDto: UpdatePaymentStatusDto
+  ): Promise<Order> {
+    const userId = req.user.userId;
+    console.log('💳 PUT /orders/:id/payment-status - userId:', userId, 'orderId:', id);
+    return this.ordersService.updatePaymentStatus(id, updateDto, userId);
+  }
+
+  @Post(':id/confirm-payment')
+  async confirmPayment(
+    @Request() req,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body?: { referencia_pago?: string }
+  ): Promise<Order> {
+    const userId = req.user.userId;
+    console.log('✅ POST /orders/:id/confirm-payment - userId:', userId, 'orderId:', id);
+    return this.ordersService.confirmPayment(id, userId, body?.referencia_pago);
+  }
 }
+
 

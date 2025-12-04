@@ -9,6 +9,22 @@ export enum OrderStatus {
     CANCELADO = 'CANCELADO'
 }
 
+export enum PaymentMethod {
+    TARJETA_CREDITO = 'TARJETA_CREDITO',
+    TARJETA_DEBITO = 'TARJETA_DEBITO',
+    PAYPAL = 'PAYPAL',
+    TRANSFERENCIA = 'TRANSFERENCIA',
+    EFECTIVO = 'EFECTIVO',
+    MERCADO_PAGO = 'MERCADO_PAGO'
+}
+
+export enum PaymentStatus {
+    PENDIENTE = 'PENDIENTE',
+    PAGADO = 'PAGADO',
+    FALLIDO = 'FALLIDO',
+    REEMBOLSADO = 'REEMBOLSADO'
+}
+
 @Entity('pedidos')
 export class Order {
     @PrimaryGeneratedColumn()
@@ -23,6 +39,28 @@ export class Order {
 
     @Column({ name: 'monto_total', type: 'decimal', precision: 10, scale: 2 })
     monto_total: number;
+
+    @Column({
+        name: 'metodo_pago',
+        type: 'enum',
+        enum: PaymentMethod,
+        nullable: true
+    })
+    metodo_pago: PaymentMethod;
+
+    @Column({
+        name: 'estado_pago',
+        type: 'enum',
+        enum: PaymentStatus,
+        default: PaymentStatus.PENDIENTE
+    })
+    estado_pago: PaymentStatus;
+
+    @Column({ name: 'referencia_pago', type: 'varchar', length: 255, nullable: true })
+    referencia_pago: string;
+
+    @Column({ name: 'pagado_el', type: 'timestamp', nullable: true })
+    pagado_el: Date;
 
     @Column({
         type: 'enum',
