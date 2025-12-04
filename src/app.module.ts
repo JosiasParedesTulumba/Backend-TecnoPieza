@@ -11,7 +11,6 @@ import { OrdersModule } from './orders/orders.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      // ⭐ Detecta automáticamente el archivo según NODE_ENV
       envFilePath: process.env.NODE_ENV === 'production' ? '.env.production' : '.env',
     }),
     TypeOrmModule.forRoot({
@@ -25,9 +24,9 @@ import { OrdersModule } from './orders/orders.module';
       synchronize: false,
       logging: process.env.NODE_ENV === 'development',
 
-      // Configuración SSL (false para local, true para Aiven)
+      // Configuración SSL para Aiven
       ssl: process.env.DB_SSL === 'true' ? {
-        rejectUnauthorized: true,
+        rejectUnauthorized: false, // Permite certificados auto-firmados
       } : false,
 
       extra: {
